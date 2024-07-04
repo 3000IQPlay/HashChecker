@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+group = 'dev.iqplay.checker'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Main-Class': 'dev.iqplay.checker.Main',
+        )
+    }
+}
