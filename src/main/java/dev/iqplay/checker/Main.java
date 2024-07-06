@@ -1,46 +1,59 @@
 package dev.iqplay.checker;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
+import java.io.IOException;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
-
     public static void main(String[] args) {
         if (args.length < 1) {
             System.out.println("Usage: java -jar scanner.jar <scan path>");
             return;
         }
-        File path = new File(args[0]);
-        if (!path.isDirectory()) {
+
+        Path path = Paths.get(args[0]);
+        if (!Files.isDirectory(path)) {
             System.out.println("Folder does not exist or is not a directory");
             return;
         }
 
-        File[] files = path.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) continue;
-                // System.out.println("Scanning: " + file.getName());
-                try {
-                    ProcessBuilder builder = new ProcessBuilder("certutil", "-hashfile", file.getAbsolutePath(), "SHA256");
-                    builder.redirectErrorStream(true);
-                    Process process = builder.start();
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            // System.out.println("Output: " + line); // Debug information
-                            if (line.matches("[a-fA-F0-9]{64}")) { // Matches a 64-character hex string
-                                System.out.println(file.getName() + " - " + line.trim());
-                                break;
-                            }
+        int threadPoolSize = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = Executors.newFixedThreadPool(threadPoolSize);
+
+        try {
+            Files.walk(path)
+                .filter(Files::isRegularFile)
+                .forEach(file -> executor.submit(() -> {
+                    try {
+                        // System.out.println("Scanning: " + file.getFileName());
+                        byte[] fileBytes = Files.readAllBytes(file);
+                        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                        byte[] hash = digest.digest(fileBytes);
+                        
+                        StringBuilder result = new StringBuilder();
+                        for (byte b : hash) {
+                            result.append(String.format("%02x", b));
                         }
+                        
+                        String hashString = result.toString();
+                        // System.out.println("Output: " + hashString); // Debug information
+                        
+                        if (hashString.matches("[a-fA-F0-9]{64}")) { // Matches a 64-character hex string
+                            System.out.println(file.getFileName() + " - " + hashString);
+                        }
+                    } catch (IOException | NoSuchAlgorithmException e) {
+                        e.printStackTrace();
                     }
-                    process.waitFor();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+                }));
+
+            executor.shutdown();
+            executor.awaitTermination(1, TimeUnit.HOURS);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }
