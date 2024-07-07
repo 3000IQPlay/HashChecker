@@ -10,8 +10,14 @@ import java.util.concurrent.TimeUnit;
 
 public class Main {
     public static void main(String[] args) {
-        if (args.length < 1 || !Files.isDirectory(Paths.get(args[0]))) {
+        if (args.length < 1) {
             System.out.println("Usage: java -jar scanner.jar <scan path>");
+            return;
+        }
+
+        Path path = Paths.get(args[0]);
+        if (!Files.isDirectory(path)) {
+            System.out.println("Folder does not exist or is not a directory");
             return;
         }
 
